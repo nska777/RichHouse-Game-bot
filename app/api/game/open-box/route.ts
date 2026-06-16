@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
-import { getRandomReward } from '@/lib/rewards';
+import { supabaseAdmin } from '../../../../lib/supabase';
+import { getRandomReward } from '../../../../lib/rewards';
 
 function today() {
   return new Date().toISOString().slice(0, 10);
