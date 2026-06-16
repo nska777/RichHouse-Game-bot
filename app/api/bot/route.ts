@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../lib/supabase';
-import { mainKeyboard, sendTelegramMessage } from '../../../lib/telegram';
+import { mainKeyboard, phoneKeyboard, sendTelegramMessage } from '../../../lib/telegram';
 
 async function findOrCreateUser(message: any) {
   const from = message.from;
@@ -31,8 +31,8 @@ async function findOrCreateUser(message: any) {
 
   await sendTelegramMessage(
     chatId,
-    'Добро пожаловать в RichHouse Деньги в Дом! Вам начислено 1000 баллов и 1 билет. Нажмите «Открыть коробку дня».',
-    mainKeyboard()
+    'Добро пожаловать в RichHouse Деньги в Дом! Вам начислено 1000 баллов и 1 билет. Чтобы участвовать в розыгрышах и получать призы, отправьте номер телефона.',
+    phoneKeyboard()
   );
 
   return user;
@@ -41,14 +41,37 @@ async function findOrCreateUser(message: any) {
 export async function POST(request: Request) {
   const update = await request.json();
   const message = update.message;
-  if (!message?.text) return NextResponse.json({ ok: true });
+  if (!message) return NextResponse.json({ ok: true });
 
   const chatId = message.chat.id;
-  const text = message.text;
   const user = await findOrCreateUser(message);
 
+  if (message.contact?.phone_number) {
+    await supabaseAdmin
+      .from('users')
+      .update({ phone: message.contact.phone_number })
+      .eq('id', user.id);
+
+    await sendTelegramMessage(chatId, 'Номер сохранён. Теперь можно открывать коробку дня и участвовать в розыгрышах RichHouse.', mainKeyboard());
+    return NextResponse.json({ ok: true });
+  }
+
+  if (!message.text) return NextResponse.json({ ok: true });
+
+  const text = message.text;
+
   if (text === '/start') {
+    if (!user.phone) {
+      await sendTelegramMessage(chatId, 'Вы в игре RichHouse Деньги в Дом. Для участия отправьте номер телефона.', phoneKeyboard());
+      return NextResponse.json({ ok: true });
+    }
+
     await sendTelegramMessage(chatId, 'Вы в игре RichHouse Деньги в Дом. Открывайте коробку каждый день, копите баллы и билеты.', mainKeyboard());
+    return NextResponse.json({ ok: true });
+  }
+
+  if (!user.phone) {
+    await sendTelegramMessage(chatId, 'Сначала отправьте номер телефона, чтобы мы могли закрепить за вами баллы, билеты и призы.', phoneKeyboard());
     return NextResponse.json({ ok: true });
   }
 
@@ -79,9 +102,15 @@ export async function POST(request: Request) {
     await supabaseAdmin.from('leads').insert({ user_id: user.id, name: user.name, phone: user.phone, interest: 'Подбор мебели из игры', status: 'new' });
     const managerChatId = process.env.TELEGRAM_MANAGER_CHAT_ID;
     if (managerChatId) {
-      await sendTelegramMessage(managerChatId, `Новая заявка из игры RichHouse\nИмя: ${user.name}\nTelegram: @${user.telegram_username || '-'}\nБаллы: ${user.points}\nБилеты: ${user.tickets}`);
+      await sendTelegramMessage(managerChatId, `Новая заявка из игры RichHouse\nИмя: ${user.name}\nТелефон: ${user.phone || '-'}\nTelegram: @${user.telegram_username || '-'}\nБаллы: ${user.points}\nБилеты: ${user.tickets}`);
     }
     await sendTelegramMessage(chatId, 'Заявка принята. Менеджер RichHouse свяжется с вами для подбора мебели.', mainKeyboard());
+    return NextResponse.json({ ok: true });
+  }
+
+  if (text.includes('Пригласить')) {
+    const botUrl = process.env.NEXT_PUBLIC_TELEGRAM_BOT_URL || 'https://t.me/your_bot';
+    await sendTelegramMessage(chatId, `Ваша ссылка для приглашения:\n${botUrl}?start=${user.id}\nЗа регистрацию друга можно начислять дополнительные баллы на следующих этапах.`, mainKeyboard());
     return NextResponse.json({ ok: true });
   }
 
