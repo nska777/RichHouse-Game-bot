@@ -1,5 +1,7 @@
 import { supabaseAdmin } from '../../lib/supabase';
 
+export const dynamic = 'force-dynamic';
+
 type UserRow = {
   id: string;
   name: string | null;
@@ -26,32 +28,58 @@ function today() {
 async function getData(secret?: string) {
   if (!secret || secret !== process.env.ADMIN_SECRET) return null;
 
-  const date = today();
-  const [{ count: usersCount }, { count: leadsCount }, { count: todayBoxesCount }, users, leads, draw] = await Promise.all([
-    supabaseAdmin.from('users').select('*', { count: 'exact', head: true }),
-    supabaseAdmin.from('leads').select('*', { count: 'exact', head: true }),
-    supabaseAdmin.from('daily_boxes').select('*', { count: 'exact', head: true }).eq('opened_date', date),
-    supabaseAdmin.from('users').select('id,name,phone,telegram_username,points,tickets,created_at').order('created_at', { ascending: false }).limit(20),
-    supabaseAdmin.from('leads').select('*').order('created_at', { ascending: false }).limit(20),
-    supabaseAdmin.from('draws').select('*, users:winner_user_id(name,phone,telegram_username,tickets)').eq('draw_date', date).eq('draw_type', 'daily').maybeSingle(),
-  ]);
+  try {
+    const date = today();
 
-  const drawUser = draw.data?.users as any;
+    const usersCountQuery = supabaseAdmin.from('users').select('*', { count: 'exact', head: true });
+    const leadsCountQuery = supabaseAdmin.from('leads').select('*', { count: 'exact', head: true });
+    const boxesCountQuery = supabaseAdmin.from('daily_boxes').select('*', { count: 'exact', head: true }).eq('opened_date', date);
+    const usersQuery = supabaseAdmin.from('users').select('id,name,phone,telegram_username,points,tickets,created_at').order('created_at', { ascending: false }).limit(20);
+    const leadsQuery = supabaseAdmin.from('leads').select('id,name,phone,interest,status,created_at').order('created_at', { ascending: false }).limit(20);
+    const drawQuery = supabaseAdmin.from('draws').select('id,winner_user_id,prize_title').eq('draw_date', date).eq('draw_type', 'daily').maybeSingle();
 
-  return {
-    usersCount: usersCount || 0,
-    leadsCount: leadsCount || 0,
-    todayBoxesCount: todayBoxesCount || 0,
-    users: users.data || [],
-    leads: leads.data || [],
-    drawResult: draw.data ? {
-      name: drawUser?.name || drawUser?.telegram_username || null,
-      phone: drawUser?.phone || null,
-      telegram: drawUser?.telegram_username || null,
-      tickets: drawUser?.tickets || 0,
-      prize: draw.data.prize_title,
-    } : null,
-  };
+    const [usersCount, leadsCount, todayBoxesCount, users, leads, draw] = await Promise.all([
+      usersCountQuery,
+      leadsCountQuery,
+      boxesCountQuery,
+      usersQuery,
+      leadsQuery,
+      drawQuery,
+    ]);
+
+    const errors = [usersCount.error, leadsCount.error, todayBoxesCount.error, users.error, leads.error, draw.error].filter(Boolean);
+    if (errors.length) {
+      return { error: errors.map((item: any) => item.message).join('; ') };
+    }
+
+    let drawResult = null;
+    if (draw.data?.winner_user_id) {
+      const winner = await supabaseAdmin
+        .from('users')
+        .select('name,phone,telegram_username,tickets')
+        .eq('id', draw.data.winner_user_id)
+        .maybeSingle();
+
+      drawResult = {
+        name: winner.data?.name || winner.data?.telegram_username || null,
+        phone: winner.data?.phone || null,
+        telegram: winner.data?.telegram_username || null,
+        tickets: winner.data?.tickets || 0,
+        prize: draw.data.prize_title,
+      };
+    }
+
+    return {
+      usersCount: usersCount.count || 0,
+      leadsCount: leadsCount.count || 0,
+      todayBoxesCount: todayBoxesCount.count || 0,
+      users: users.data || [],
+      leads: leads.data || [],
+      drawResult,
+    };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Unknown admin error' };
+  }
 }
 
 function Card({ title, value }: { title: string; value: number }) {
@@ -105,6 +133,18 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       <main style={{ padding: 40 }}>
         <h1>Админка RichHouse Game</h1>
         <p>Добавь к ссылке секрет: /admin?secret=...</p>
+      </main>
+    );
+  }
+
+  if ('error' in data) {
+    return (
+      <main style={{ padding: 40, maxWidth: 900, margin: '0 auto' }}>
+        <h1>Админка RichHouse Game</h1>
+        <div style={{ border: '1px solid #c8a15a', borderRadius: 16, padding: 20, color: '#f5efe5' }}>
+          <b>Ошибка админки:</b>
+          <pre style={{ whiteSpace: 'pre-wrap' }}>{data.error}</pre>
+        </div>
       </main>
     );
   }
