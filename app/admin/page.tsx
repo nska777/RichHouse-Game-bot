@@ -1,9 +1,70 @@
+type UserRow = {
+  id: string;
+  name: string | null;
+  phone: string | null;
+  telegram_username: string | null;
+  points: number;
+  tickets: number;
+  created_at: string;
+};
+
+type LeadRow = {
+  id: string;
+  name: string | null;
+  phone: string | null;
+  interest: string | null;
+  status: string;
+  created_at: string;
+};
+
 async function getData(secret?: string) {
   if (!secret) return null;
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
   const res = await fetch(`${baseUrl}/api/admin/dashboard?secret=${secret}`, { cache: 'no-store' });
   if (!res.ok) return null;
   return res.json();
+}
+
+function Card({ title, value }: { title: string; value: number }) {
+  return (
+    <div style={{ border: '1px solid rgba(200,161,90,.35)', borderRadius: 20, padding: 22, background: 'rgba(255,255,255,.04)' }}>
+      <div style={{ color: '#c8a15a', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1 }}>{title}</div>
+      <div style={{ fontSize: 42, fontWeight: 800, marginTop: 10 }}>{value}</div>
+    </div>
+  );
+}
+
+function Table({ rows, type }: { rows: Array<UserRow | LeadRow>; type: 'users' | 'leads' }) {
+  if (!rows.length) {
+    return <div style={{ color: '#b9aa91', padding: 18, border: '1px solid rgba(255,255,255,.08)', borderRadius: 16 }}>Пока пусто</div>;
+  }
+
+  return (
+    <div style={{ overflowX: 'auto', border: '1px solid rgba(255,255,255,.08)', borderRadius: 16 }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr style={{ color: '#c8a15a', textAlign: 'left' }}>
+            <th style={{ padding: 14 }}>Имя</th>
+            <th style={{ padding: 14 }}>Телефон</th>
+            {type === 'users' ? <th style={{ padding: 14 }}>Баллы</th> : <th style={{ padding: 14 }}>Интерес</th>}
+            {type === 'users' ? <th style={{ padding: 14 }}>Билеты</th> : <th style={{ padding: 14 }}>Статус</th>}
+            <th style={{ padding: 14 }}>Дата</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id} style={{ borderTop: '1px solid rgba(255,255,255,.08)' }}>
+              <td style={{ padding: 14 }}>{row.name || '-'}</td>
+              <td style={{ padding: 14 }}>{row.phone || ('telegram_username' in row && row.telegram_username ? '@' + row.telegram_username : '-')}</td>
+              {'points' in row ? <td style={{ padding: 14 }}>{row.points}</td> : <td style={{ padding: 14 }}>{row.interest || '-'}</td>}
+              {'tickets' in row ? <td style={{ padding: 14 }}>{row.tickets}</td> : <td style={{ padding: 14 }}>{row.status}</td>}
+              <td style={{ padding: 14 }}>{new Date(row.created_at).toLocaleDateString('ru-RU')}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 export default async function AdminPage({ searchParams }: { searchParams: Promise<{ secret?: string }> }) {
@@ -20,17 +81,31 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   }
 
   return (
-    <main style={{ padding: 40 }}>
-      <h1>Админка RichHouse Game</h1>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-        <div><b>Участники</b><br />{data.usersCount}</div>
-        <div><b>Заявки</b><br />{data.leadsCount}</div>
-        <div><b>Открыли сегодня</b><br />{data.todayBoxesCount}</div>
+    <main style={{ padding: 40, maxWidth: 1180, margin: '0 auto' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 20, alignItems: 'center', marginBottom: 30 }}>
+        <div>
+          <div style={{ color: '#c8a15a', letterSpacing: 2, textTransform: 'uppercase' }}>RichHouse Game</div>
+          <h1 style={{ margin: '8px 0 0', fontSize: 42 }}>Админка</h1>
+        </div>
+        <a href={`/api/admin/draw?secret=${params.secret}`} style={{ background: '#c8a15a', color: '#15100c', padding: '14px 18px', borderRadius: 14, fontWeight: 800 }}>Провести розыгрыш дня</a>
       </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 34 }}>
+        <Card title="Участники" value={data.usersCount} />
+        <Card title="Заявки" value={data.leadsCount} />
+        <Card title="Открыли сегодня" value={data.todayBoxesCount} />
+      </div>
+
+      {data.drawResult ? (
+        <div style={{ border: '1px solid rgba(200,161,90,.45)', borderRadius: 20, padding: 20, marginBottom: 28, background: 'rgba(200,161,90,.08)' }}>
+          <b>Победитель дня:</b> {data.drawResult.name || 'Участник'} — билетов: {data.drawResult.tickets}
+        </div>
+      ) : null}
+
       <h2>Последние заявки</h2>
-      <pre style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(data.leads, null, 2)}</pre>
-      <h2>Последние участники</h2>
-      <pre style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(data.users, null, 2)}</pre>
+      <Table rows={data.leads} type="leads" />
+      <h2 style={{ marginTop: 34 }}>Последние участники</h2>
+      <Table rows={data.users} type="users" />
     </main>
   );
 }
