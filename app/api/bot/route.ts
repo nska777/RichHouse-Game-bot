@@ -43,6 +43,10 @@ export async function POST(request: Request) {
   const message = update.message;
   if (!message) return NextResponse.json({ ok: true });
 
+  if (message.chat?.type !== 'private') {
+    return NextResponse.json({ ok: true });
+  }
+
   const chatId = message.chat.id;
   const user = await findOrCreateUser(message);
 
@@ -81,13 +85,18 @@ export async function POST(request: Request) {
   }
 
   if (text.includes('коробку')) {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+    const appUrl = new URL(request.url).origin;
     const response = await fetch(appUrl + '/api/game/open-box', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ telegramId: user.telegram_id }),
     });
     const result = await response.json();
+
+    if (!response.ok) {
+      await sendTelegramMessage(chatId, 'Не удалось открыть коробку. Попробуйте ещё раз чуть позже.', mainKeyboard());
+      return NextResponse.json({ ok: true });
+    }
 
     if (result.alreadyOpened) {
       await sendTelegramMessage(chatId, 'Вы уже открывали коробку сегодня. Возвращайтесь завтра.', mainKeyboard());
@@ -101,7 +110,7 @@ export async function POST(request: Request) {
   if (text.includes('подборку')) {
     await supabaseAdmin.from('leads').insert({ user_id: user.id, name: user.name, phone: user.phone, interest: 'Подбор мебели из игры', status: 'new' });
     const managerChatId = process.env.TELEGRAM_MANAGER_CHAT_ID;
-    if (managerChatId) {
+    if (managerChatId && managerChatId !== '0') {
       await sendTelegramMessage(managerChatId, `Новая заявка из игры RichHouse\nИмя: ${user.name}\nТелефон: ${user.phone || '-'}\nTelegram: @${user.telegram_username || '-'}\nБаллы: ${user.points}\nБилеты: ${user.tickets}`);
     }
     await sendTelegramMessage(chatId, 'Заявка принята. Менеджер RichHouse свяжется с вами для подбора мебели.', mainKeyboard());
