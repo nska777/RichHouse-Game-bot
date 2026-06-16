@@ -38,6 +38,33 @@ async function findOrCreateUser(message: any) {
   return user;
 }
 
+async function createLeadIfNeeded(user: any) {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: existing } = await supabaseAdmin
+    .from('leads')
+    .select('id,status,created_at')
+    .eq('user_id', user.id)
+    .in('status', ['new', 'contacted'])
+    .gte('created_at', since)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) {
+    return { created: false, lead: existing };
+  }
+
+  const { data: lead, error } = await supabaseAdmin
+    .from('leads')
+    .insert({ user_id: user.id, name: user.name, phone: user.phone, interest: 'Подбор мебели из игры', status: 'new' })
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  return { created: true, lead };
+}
+
 export async function POST(request: Request) {
   const update = await request.json();
   const message = update.message;
@@ -108,7 +135,13 @@ export async function POST(request: Request) {
   }
 
   if (text.includes('подборку')) {
-    await supabaseAdmin.from('leads').insert({ user_id: user.id, name: user.name, phone: user.phone, interest: 'Подбор мебели из игры', status: 'new' });
+    const leadResult = await createLeadIfNeeded(user);
+
+    if (!leadResult.created) {
+      await sendTelegramMessage(chatId, 'У вас уже есть активная заявка. Менеджер RichHouse свяжется с вами. Повторную заявку можно оставить позже.', mainKeyboard());
+      return NextResponse.json({ ok: true });
+    }
+
     const managerChatId = process.env.TELEGRAM_MANAGER_CHAT_ID;
     if (managerChatId && managerChatId !== '0') {
       await sendTelegramMessage(managerChatId, `Новая заявка из игры RichHouse\nИмя: ${user.name}\nТелефон: ${user.phone || '-'}\nTelegram: @${user.telegram_username || '-'}\nБаллы: ${user.points}\nБилеты: ${user.tickets}`);
