@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
-import { mainKeyboard, sendTelegramMessage } from '@/lib/telegram';
+import { supabaseAdmin } from '../../../lib/supabase';
+import { mainKeyboard, sendTelegramMessage } from '../../../lib/telegram';
 
 async function findOrCreateUser(message: any) {
   const from = message.from;
