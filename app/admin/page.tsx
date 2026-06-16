@@ -156,7 +156,10 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           <div style={{ color: '#c8a15a', letterSpacing: 2, textTransform: 'uppercase' }}>RichHouse Game</div>
           <h1 style={{ margin: '8px 0 0', fontSize: 42 }}>Админка</h1>
         </div>
-        <a href={`/api/admin/draw?secret=${params.secret}`} style={{ background: '#c8a15a', color: '#15100c', padding: '14px 18px', borderRadius: 14, fontWeight: 800 }}>Провести розыгрыш дня</a>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <a href={`/api/admin/export?secret=${params.secret}`} style={{ border: '1px solid #c8a15a', color: '#c8a15a', padding: '14px 18px', borderRadius: 14, fontWeight: 800 }}>Скачать заявки CSV</a>
+          <a href={`/api/admin/draw?secret=${params.secret}`} style={{ background: '#c8a15a', color: '#15100c', padding: '14px 18px', borderRadius: 14, fontWeight: 800 }}>Провести розыгрыш дня</a>
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 34 }}>
