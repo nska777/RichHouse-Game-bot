@@ -25,3 +25,11 @@ export function mainKeyboard() {
     resize_keyboard: true,
   };
 }
+
+export function phoneKeyboard() {
+  return {
+    keyboard: [[{ text: 'Отправить номер телефона', request_contact: true }]],
+    resize_keyboard: true,
+    one_time_keyboard: true,
+  };
+}
