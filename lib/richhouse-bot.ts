@@ -5,23 +5,9 @@ type TelegramUser = {
   username?: string;
 };
 
-type TelegramChat = {
-  id: number;
-  type: string;
-};
-
-type TelegramPhotoSize = {
-  file_id: string;
-  width: number;
-  height: number;
-};
-
-type TelegramContact = {
-  phone_number: string;
-  first_name?: string;
-  last_name?: string;
-  user_id?: number;
-};
+type TelegramChat = { id: number; type: string };
+type TelegramPhotoSize = { file_id: string; width: number; height: number };
+type TelegramContact = { phone_number: string; first_name?: string; last_name?: string; user_id?: number };
 
 type TelegramMessage = {
   message_id: number;
@@ -63,11 +49,7 @@ type LeadDraft = {
   updatedAt: number;
 };
 
-type InlineButton = {
-  text: string;
-  callback_data?: string;
-  url?: string;
-};
+type InlineButton = { text: string; callback_data?: string; url?: string };
 
 type ReplyMarkup = {
   inline_keyboard?: InlineButton[][];
@@ -135,11 +117,7 @@ function botUrl() {
 }
 
 function cleanHtml(value: string) {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
+  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
 }
 
 function userTitle(user?: TelegramUser) {
@@ -290,9 +268,13 @@ function getDraft(chatId: number, defaults: Partial<LeadDraft> = {}) {
   return draft;
 }
 
+function withoutUndefined(patch: Partial<LeadDraft>) {
+  return Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined)) as Partial<LeadDraft>;
+}
+
 function patchDraft(chatId: number, patch: Partial<LeadDraft>) {
   const current = getDraft(chatId);
-  const next = { ...current, ...patch, updatedAt: Date.now() };
+  const next = { ...current, ...withoutUndefined(patch), updatedAt: Date.now() };
   drafts.set(chatId, next);
   return next;
 }
@@ -329,21 +311,13 @@ async function submitLead(chatId: number, user?: TelegramUser) {
   }
 
   await sendMessage(target, leadText(draft, user));
-  await sendMessage(
-    chatId,
-    'Спасибо! Заявка принята. Менеджер RichHouse свяжется с вами и подготовит подходящие варианты мебели.',
-    { remove_keyboard: true },
-  );
+  await sendMessage(chatId, 'Спасибо! Заявка принята. Менеджер RichHouse свяжется с вами и подготовит подходящие варианты мебели.', { remove_keyboard: true });
   drafts.delete(chatId);
 }
 
 async function startSelection(chatId: number, source?: string) {
   patchDraft(chatId, { type: 'Подбор мебели по интерьеру', source, step: 'room' });
-  await sendMessage(
-    chatId,
-    'Отлично. Что хотите подобрать?\n\nПосле ответов можно будет отправить фото комнаты, а менеджер подготовит 2–3 подходящих варианта.',
-    roomMenu('selection'),
-  );
+  await sendMessage(chatId, 'Отлично. Что хотите подобрать?\n\nПосле ответов можно будет отправить фото комнаты, а менеджер подготовит 2–3 подходящих варианта.', roomMenu('selection'));
 }
 
 async function startCalculation(chatId: number, source?: string) {
@@ -353,10 +327,7 @@ async function startCalculation(chatId: number, source?: string) {
 
 async function startDesigner(chatId: number, source?: string) {
   patchDraft(chatId, { type: 'Партнёрская заявка дизайнера', source, step: 'designer_studio' });
-  await sendMessage(
-    chatId,
-    'RichHouse Design Club — условия для дизайнеров, архитекторов и интерьерных студий.\n\nНапишите название вашей студии/компании или просто ваше имя.',
-  );
+  await sendMessage(chatId, 'RichHouse Design Club — условия для дизайнеров, архитекторов и интерьерных студий.\n\nНапишите название вашей студии/компании или просто ваше имя.');
 }
 
 async function startVisit(chatId: number, source?: string) {
@@ -373,11 +344,7 @@ async function startVisit(chatId: number, source?: string) {
 
 async function startTradeIn(chatId: number, source?: string) {
   patchDraft(chatId, { type: 'Обновление интерьера / партнёрская оценка старой мебели', source, step: 'room' });
-  await sendMessage(
-    chatId,
-    'RichHouse производит мебель только из новых материалов. Но мы можем помочь с обновлением интерьера: подобрать новую мебель и передать контакт партнёрам, которые занимаются оценкой/вывозом старой мебели.\n\nЧто хотите обновить?',
-    roomMenu('tradein'),
-  );
+  await sendMessage(chatId, 'RichHouse производит мебель только из новых материалов. Но мы можем помочь с обновлением интерьера: подобрать новую мебель и передать контакт партнёрам, которые занимаются оценкой/вывозом старой мебели.\n\nЧто хотите обновить?', roomMenu('tradein'));
 }
 
 async function startManager(chatId: number, source?: string) {
@@ -402,16 +369,12 @@ async function handleCatalog(chatId: number, section?: string) {
 
   const title = titleBySection[section] || 'Каталог';
   const site = appUrl() ? `\n\nСайт: ${appUrl()}` : '';
-  await sendMessage(
-    chatId,
-    `<b>${cleanHtml(title)}</b>\n\nСейчас каталог в боте работает как быстрый вход в заявку. Нажмите кнопку ниже — менеджер отправит актуальные фото, цены и наличие по вашему запросу.${site}`,
-    {
-      inline_keyboard: [
-        [{ text: 'Получить подборку по этому разделу', callback_data: `cataloglead:${section}` }],
-        [{ text: 'Другой раздел', callback_data: 'flow:catalog' }, { text: 'Главное меню', callback_data: 'menu:main' }],
-      ],
-    },
-  );
+  await sendMessage(chatId, `<b>${cleanHtml(title)}</b>\n\nСейчас каталог в боте работает как быстрый вход в заявку. Нажмите кнопку ниже — менеджер отправит актуальные фото, цены и наличие по вашему запросу.${site}`, {
+    inline_keyboard: [
+      [{ text: 'Получить подборку по этому разделу', callback_data: `cataloglead:${section}` }],
+      [{ text: 'Другой раздел', callback_data: 'flow:catalog' }, { text: 'Главное меню', callback_data: 'menu:main' }],
+    ],
+  });
 }
 
 async function handleCallback(callback: TelegramCallbackQuery) {
@@ -421,11 +384,7 @@ async function handleCallback(callback: TelegramCallbackQuery) {
 
   await answerCallbackQuery(callback.id);
 
-  if (data === 'menu:main') {
-    await sendMessage(chatId, 'Главное меню RichHouse:', mainMenu());
-    return;
-  }
-
+  if (data === 'menu:main') return sendMessage(chatId, 'Главное меню RichHouse:', mainMenu());
   if (data === 'flow:selection') return startSelection(chatId);
   if (data === 'flow:calculate') return startCalculation(chatId);
   if (data === 'flow:catalog') return handleCatalog(chatId);
@@ -433,7 +392,6 @@ async function handleCallback(callback: TelegramCallbackQuery) {
   if (data === 'flow:designer') return startDesigner(chatId);
   if (data === 'flow:tradein') return startTradeIn(chatId);
   if (data === 'flow:manager') return startManager(chatId);
-
   if (data.startsWith('catalog:')) return handleCatalog(chatId, data.split(':')[1]);
 
   if (data.startsWith('cataloglead:')) {
@@ -467,11 +425,7 @@ async function handleCallback(callback: TelegramCallbackQuery) {
 
   if (field === 'budget') {
     patchDraft(chatId, { budget: budgetLabels[value] || value, step: 'photo_or_phone' });
-    await sendMessage(
-      chatId,
-      'Теперь можно отправить фото комнаты, размеры или сразу оставить номер телефона.\n\nФото поможет подобрать мебель точнее.',
-      contactKeyboard(),
-    );
+    await sendMessage(chatId, 'Теперь можно отправить фото комнаты, размеры или сразу оставить номер телефона.\n\nФото поможет подобрать мебель точнее.', contactKeyboard());
     return;
   }
 
@@ -500,13 +454,8 @@ async function handleMessage(message: TelegramMessage) {
 
   if (text?.startsWith('/start')) {
     drafts.delete(chatId);
-    await sendMessage(
-      chatId,
-      'Добро пожаловать в RichHouse.\n\nЯ помогу подобрать мебель под ваш интерьер, рассчитать комплект, записать вас в салон или передать заявку менеджеру.',
-      mainMenu(),
-    );
-
     if (source && source !== 'direct') patchDraft(chatId, { source });
+    await sendMessage(chatId, 'Добро пожаловать в RichHouse.\n\nЯ помогу подобрать мебель под ваш интерьер, рассчитать комплект, записать вас в салон или передать заявку менеджеру.', mainMenu());
     return;
   }
 
@@ -516,10 +465,8 @@ async function handleMessage(message: TelegramMessage) {
   }
 
   if (message.contact?.phone_number) {
-    const draft = patchDraft(chatId, { phone: message.contact.phone_number, step: 'done' });
+    patchDraft(chatId, { phone: message.contact.phone_number, step: 'done' });
     await submitLead(chatId, message.from);
-    drafts.set(chatId, draft);
-    drafts.delete(chatId);
     return;
   }
 
@@ -533,11 +480,7 @@ async function handleMessage(message: TelegramMessage) {
       step: 'phone',
     });
 
-    await forwardPhotoToManagers(
-      message,
-      `<b>Фото к заявке RichHouse</b>\n${leadText(draft, message.from)}`,
-    );
-
+    await forwardPhotoToManagers(message, `<b>Фото к заявке RichHouse</b>\n${leadText(draft, message.from)}`);
     await sendMessage(chatId, 'Фото получил. Теперь оставьте номер телефона, чтобы менеджер подготовил подборку и связался с вами.', contactKeyboard());
     return;
   }
@@ -565,9 +508,7 @@ export async function handleTelegramUpdate(update: TelegramUpdate) {
     return;
   }
 
-  if (update.message) {
-    await handleMessage(update.message);
-  }
+  if (update.message) await handleMessage(update.message);
 }
 
 export async function setTelegramWebhook(secret: string) {
