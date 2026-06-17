@@ -1,5 +1,7 @@
 import { requiredEnv } from './env';
 
+const PRODUCTION_APP_URL = 'https://rich-house-game-bot.vercel.app';
+
 export async function sendTelegramMessage(chatId: string | number, text: string, replyMarkup?: unknown) {
   const token = requiredEnv('TELEGRAM_BOT_TOKEN');
   const response = await fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
@@ -16,7 +18,9 @@ export async function sendTelegramMessage(chatId: string | number, text: string,
 }
 
 export function getAppUrl() {
-  return process.env.NEXT_PUBLIC_APP_URL || 'https://rich-house-game-bot.vercel.app';
+  const raw = process.env.NEXT_PUBLIC_APP_URL || PRODUCTION_APP_URL;
+  if (raw.includes('localhost') || raw.includes('127.0.0.1')) return PRODUCTION_APP_URL;
+  return raw.replace(/\/$/, '');
 }
 
 export function mainKeyboard() {
