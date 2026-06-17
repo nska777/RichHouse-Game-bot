@@ -17,6 +17,21 @@ export async function sendTelegramMessage(chatId: string | number, text: string,
   return response.json();
 }
 
+export async function sendTelegramPhoto(chatId: string | number, photo: string, caption?: string, replyMarkup?: unknown) {
+  const token = requiredEnv('TELEGRAM_BOT_TOKEN');
+  const response = await fetch('https://api.telegram.org/bot' + token + '/sendPhoto', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, photo, caption, parse_mode: 'HTML', reply_markup: replyMarkup }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+
+  return response.json();
+}
+
 export function getAppUrl() {
   const raw = process.env.NEXT_PUBLIC_APP_URL || PRODUCTION_APP_URL;
   if (raw.includes('localhost') || raw.includes('127.0.0.1')) return PRODUCTION_APP_URL;
@@ -26,8 +41,8 @@ export function getAppUrl() {
 export function mainKeyboard() {
   return {
     keyboard: [
-      [{ text: '🕹️ Играть внутри' }, { text: '🎡 Колесо бонусов' }],
-      [{ text: '🎮 Игра дня' }, { text: '🏠 Собрать интерьер' }],
+      [{ text: '📷 Дизайн по фото' }, { text: '🕹️ Играть внутри' }],
+      [{ text: '🎡 Колесо бонусов' }, { text: '🏠 Собрать интерьер' }],
       [{ text: '🎁 Открыть коробку дня' }, { text: '💎 Использовать баллы' }],
       [{ text: '📊 Мой баланс' }, { text: '👥 Пригласить друга' }],
       [{ text: '📜 Правила' }],
