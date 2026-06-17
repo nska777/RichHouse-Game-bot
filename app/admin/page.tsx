@@ -17,6 +17,9 @@ type LeadRow = {
   name: string | null;
   phone: string | null;
   interest: string | null;
+  room_type: string | null;
+  budget: string | null;
+  comment: string | null;
   status: string;
   created_at: string;
 };
@@ -32,8 +35,30 @@ function statusLabel(status: string) {
     visited: 'Был в салоне',
     won: 'Купил',
     lost: 'Отказ',
+    profile_draft: 'Квиз не завершён',
   };
   return labels[status] || status;
+}
+
+function profileFromComment(comment?: string | null) {
+  if (!comment) return null;
+  try {
+    return JSON.parse(comment) as { style?: string; timeline?: string; source?: string };
+  } catch {
+    return null;
+  }
+}
+
+function leadProfileText(lead: LeadRow) {
+  const profile = profileFromComment(lead.comment);
+  const parts = [
+    lead.room_type ? `Комната: ${lead.room_type}` : null,
+    profile?.style ? `Стиль: ${profile.style}` : null,
+    lead.budget ? `Бюджет: ${lead.budget}` : null,
+    profile?.timeline ? `Срок: ${profile.timeline}` : null,
+  ].filter(Boolean);
+
+  return parts.length ? parts.join(' / ') : lead.interest || '-';
 }
 
 async function getData(secret?: string) {
@@ -43,10 +68,10 @@ async function getData(secret?: string) {
     const date = today();
 
     const usersCountQuery = supabaseAdmin.from('users').select('*', { count: 'exact', head: true });
-    const leadsCountQuery = supabaseAdmin.from('leads').select('*', { count: 'exact', head: true });
+    const leadsCountQuery = supabaseAdmin.from('leads').select('*', { count: 'exact', head: true }).neq('status', 'profile_draft');
     const boxesCountQuery = supabaseAdmin.from('daily_boxes').select('*', { count: 'exact', head: true }).eq('opened_date', date);
     const usersQuery = supabaseAdmin.from('users').select('id,name,phone,telegram_username,points,tickets,created_at').order('created_at', { ascending: false }).limit(20);
-    const leadsQuery = supabaseAdmin.from('leads').select('id,name,phone,interest,status,created_at').order('created_at', { ascending: false }).limit(30);
+    const leadsQuery = supabaseAdmin.from('leads').select('id,name,phone,interest,room_type,budget,comment,status,created_at').neq('status', 'profile_draft').order('created_at', { ascending: false }).limit(30);
     const drawQuery = supabaseAdmin.from('draws').select('id,winner_user_id,prize_title').eq('draw_date', date).eq('draw_type', 'daily').maybeSingle();
 
     const [usersCount, leadsCount, todayBoxesCount, users, leads, draw] = await Promise.all([
@@ -145,7 +170,7 @@ function Table({ rows, type, secret }: { rows: Array<UserRow | LeadRow>; type: '
           <tr style={{ color: '#c8a15a', textAlign: 'left' }}>
             <th style={{ padding: 14 }}>Имя</th>
             <th style={{ padding: 14 }}>Телефон</th>
-            {type === 'users' ? <th style={{ padding: 14 }}>Баллы</th> : <th style={{ padding: 14 }}>Интерес</th>}
+            {type === 'users' ? <th style={{ padding: 14 }}>Баллы</th> : <th style={{ padding: 14 }}>Потребность</th>}
             {type === 'users' ? <th style={{ padding: 14 }}>Билеты</th> : <th style={{ padding: 14 }}>Статус</th>}
             <th style={{ padding: 14 }}>Дата</th>
             {type === 'leads' ? <th style={{ padding: 14 }}>Действия</th> : null}
@@ -156,7 +181,7 @@ function Table({ rows, type, secret }: { rows: Array<UserRow | LeadRow>; type: '
             <tr key={row.id} style={{ borderTop: '1px solid rgba(255,255,255,.08)' }}>
               <td style={{ padding: 14 }}>{row.name || '-'}</td>
               <td style={{ padding: 14 }}>{row.phone || ('telegram_username' in row && row.telegram_username ? '@' + row.telegram_username : '-')}</td>
-              {'points' in row ? <td style={{ padding: 14 }}>{row.points}</td> : <td style={{ padding: 14 }}>{row.interest || '-'}</td>}
+              {'points' in row ? <td style={{ padding: 14 }}>{row.points}</td> : <td style={{ padding: 14, minWidth: 340 }}>{leadProfileText(row)}</td>}
               {'tickets' in row ? <td style={{ padding: 14 }}>{row.tickets}</td> : <td style={{ padding: 14 }}>{statusLabel(row.status)}</td>}
               <td style={{ padding: 14 }}>{new Date(row.created_at).toLocaleDateString('ru-RU')}</td>
               {'status' in row ? <td style={{ padding: 14 }}><StatusActions lead={row} secret={secret} /></td> : null}
@@ -198,10 +223,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     <main style={{ padding: 40, maxWidth: 1280, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 20, alignItems: 'center', marginBottom: 30 }}>
         <div>
-          <div style={{ color: '#c8a15a', letterSpacing: 2, textTransform: 'uppercase' }}>RichHouse Game</div>
-          <h1 style={{ margin: '8px 0 0', fontSize: 42 }}>Админка</h1>
+          <div style={{ color: '#c8a15a', letterSpacing: 2, textTransform: 'uppercase' }}>RichHouse CRM</div>
+          <h1 style={{ margin: '8px 0 0', fontSize: 42 }}>Панель продаж</h1>
         </div>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <a href={`/admin/bonuses?secret=${secret}`} style={{ border: '1px solid #c8a15a', color: '#c8a15a', padding: '14px 18px', borderRadius: 14, fontWeight: 800 }}>Бонусы клиентам</a>
           <a href={`/api/admin/export?secret=${secret}`} style={{ border: '1px solid #c8a15a', color: '#c8a15a', padding: '14px 18px', borderRadius: 14, fontWeight: 800 }}>Скачать заявки CSV</a>
           <a href={`/api/admin/draw?secret=${secret}`} style={{ background: '#c8a15a', color: '#15100c', padding: '14px 18px', borderRadius: 14, fontWeight: 800 }}>Провести розыгрыш дня</a>
         </div>
