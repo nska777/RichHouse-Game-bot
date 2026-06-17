@@ -6,6 +6,22 @@ const roomOptions = ['Спальня', 'Гостиная', 'Столовая', '
 const styleOptions = ['Неоклассика', 'Современный', 'Итальянский', 'Минимализм', 'Светлый интерьер', 'Тёмный интерьер'];
 const budgetOptions = ['до 30 млн', '30–70 млн', '70–150 млн', '150 млн+', 'Пока не знаю'];
 const timelineOptions = ['В течение недели', 'В этом месяце', '1–3 месяца', 'Позже', 'Просто смотрю'];
+const gameOptions = ['Неоклассика', 'Лофт', 'Хай-тек', 'Кантри'];
+
+const wheelRewards = [
+  { title: '+5 000 баллов', points: 5000, tickets: 0 },
+  { title: '+10 000 баллов', points: 10000, tickets: 0 },
+  { title: '+1 билет', points: 1000, tickets: 1 },
+  { title: '+3 билета', points: 1500, tickets: 3 },
+  { title: 'Бонус на доставку', points: 7000, tickets: 1 },
+  { title: 'VIP-подборка мебели', points: 12000, tickets: 2 },
+];
+
+function todayStart() {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  return date.toISOString();
+}
 
 function parseDraft(comment?: string | null) {
   if (!comment) return { step: 'room' } as any;
@@ -65,6 +81,19 @@ async function getDraftLead(userId: string) {
   return data;
 }
 
+async function getGameDraft(userId: string) {
+  const { data } = await supabaseAdmin
+    .from('leads')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('status', 'game_draft')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return data;
+}
+
 async function startInteriorQuiz(user: any, chatId: number) {
   await supabaseAdmin.from('leads').delete().eq('user_id', user.id).eq('status', 'profile_draft');
 
@@ -77,37 +106,20 @@ async function startInteriorQuiz(user: any, chatId: number) {
     comment: JSON.stringify({ step: 'room' }),
   });
 
-  await sendTelegramMessage(
-    chatId,
-    'Начинаем подбор интерьера. Шаг 1/4\n\nКакая комната вам нужна?',
-    optionKeyboard(roomOptions)
-  );
+  await sendTelegramMessage(chatId, 'Начинаем подбор интерьера. Шаг 1/4\n\nКакая комната вам нужна?', optionKeyboard(roomOptions));
 }
 
 async function finishInteriorQuiz(user: any, draft: any, profile: any, chatId: number) {
-  const finalComment = JSON.stringify({
-    completed: true,
-    style: profile.style,
-    timeline: profile.timeline,
-    source: 'interior_quiz',
-  });
+  const finalComment = JSON.stringify({ completed: true, style: profile.style, timeline: profile.timeline, source: 'interior_quiz' });
 
   await supabaseAdmin
     .from('leads')
-    .update({
-      status: 'new',
-      interest: `Интерьерный подбор: ${draft.room_type || 'комната'}`,
-      budget: draft.budget,
-      comment: finalComment,
-    })
+    .update({ status: 'new', interest: `Интерьерный подбор: ${draft.room_type || 'комната'}`, budget: draft.budget, comment: finalComment })
     .eq('id', draft.id);
 
   await supabaseAdmin
     .from('users')
-    .update({
-      points: Number(user.points || 0) + 15000,
-      tickets: Number(user.tickets || 0) + 3,
-    })
+    .update({ points: Number(user.points || 0) + 15000, tickets: Number(user.tickets || 0) + 3 })
     .eq('id', user.id);
 
   await supabaseAdmin.from('actions').insert({
@@ -115,12 +127,7 @@ async function finishInteriorQuiz(user: any, draft: any, profile: any, chatId: n
     action_type: 'complete_interior_quiz',
     points_added: 15000,
     tickets_added: 3,
-    metadata: {
-      room: draft.room_type,
-      style: profile.style,
-      budget: draft.budget,
-      timeline: profile.timeline,
-    },
+    metadata: { room: draft.room_type, style: profile.style, budget: draft.budget, timeline: profile.timeline },
   });
 
   const managerChatId = process.env.TELEGRAM_MANAGER_CHAT_ID;
@@ -151,31 +158,19 @@ async function continueInteriorQuiz(user: any, text: string, chatId: number) {
   const profile = parseDraft(draft.comment);
 
   if (profile.step === 'room') {
-    await supabaseAdmin
-      .from('leads')
-      .update({ room_type: text, comment: JSON.stringify({ step: 'style' }) })
-      .eq('id', draft.id);
-
+    await supabaseAdmin.from('leads').update({ room_type: text, comment: JSON.stringify({ step: 'style' }) }).eq('id', draft.id);
     await sendTelegramMessage(chatId, 'Шаг 2/4\n\nКакой стиль вам ближе?', optionKeyboard(styleOptions));
     return true;
   }
 
   if (profile.step === 'style') {
-    await supabaseAdmin
-      .from('leads')
-      .update({ comment: JSON.stringify({ step: 'budget', style: text }) })
-      .eq('id', draft.id);
-
+    await supabaseAdmin.from('leads').update({ comment: JSON.stringify({ step: 'budget', style: text }) }).eq('id', draft.id);
     await sendTelegramMessage(chatId, 'Шаг 3/4\n\nКакой ориентировочный бюджет?', optionKeyboard(budgetOptions));
     return true;
   }
 
   if (profile.step === 'budget') {
-    await supabaseAdmin
-      .from('leads')
-      .update({ budget: text, comment: JSON.stringify({ ...profile, step: 'timeline' }) })
-      .eq('id', draft.id);
-
+    await supabaseAdmin.from('leads').update({ budget: text, comment: JSON.stringify({ ...profile, step: 'timeline' }) }).eq('id', draft.id);
     await sendTelegramMessage(chatId, 'Шаг 4/4\n\nКогда планируете покупку?', optionKeyboard(timelineOptions));
     return true;
   }
@@ -186,6 +181,139 @@ async function continueInteriorQuiz(user: any, text: string, chatId: number) {
   }
 
   return false;
+}
+
+async function startMiniGame(user: any, chatId: number) {
+  const { data: alreadyPlayed } = await supabaseAdmin
+    .from('actions')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('action_type', 'daily_mini_game')
+    .gte('created_at', todayStart())
+    .limit(1)
+    .maybeSingle();
+
+  if (alreadyPlayed) {
+    await sendTelegramMessage(chatId, 'Вы уже прошли игру дня. Завтра будет новое задание и новые бонусы.', mainKeyboard());
+    return;
+  }
+
+  await supabaseAdmin.from('leads').delete().eq('user_id', user.id).eq('status', 'game_draft');
+  await supabaseAdmin.from('leads').insert({
+    user_id: user.id,
+    name: user.name,
+    phone: user.phone,
+    interest: 'Игра дня RichHouse',
+    status: 'game_draft',
+    comment: JSON.stringify({ answer: 'Неоклассика' }),
+  });
+
+  await sendTelegramMessage(
+    chatId,
+    '🎮 Игра дня: угадайте стиль интерьера.\n\nВысокое мягкое изголовье, молдинги на стенах, светлая палитра, спокойная статусность. Какой это стиль?',
+    optionKeyboard(gameOptions)
+  );
+}
+
+async function continueMiniGame(user: any, text: string, chatId: number) {
+  const draft = await getGameDraft(user.id);
+  if (!draft) return false;
+
+  if (text === 'Отмена') {
+    await supabaseAdmin.from('leads').delete().eq('id', draft.id);
+    await sendTelegramMessage(chatId, 'Игра дня отменена. Можно вернуться позже.', mainKeyboard());
+    return true;
+  }
+
+  const data = parseDraft(draft.comment);
+  const correct = text === data.answer;
+  const points = correct ? 5000 : 500;
+  const tickets = correct ? 2 : 0;
+
+  await supabaseAdmin.from('leads').delete().eq('id', draft.id);
+  await supabaseAdmin.from('users').update({ points: Number(user.points || 0) + points, tickets: Number(user.tickets || 0) + tickets }).eq('id', user.id);
+  await supabaseAdmin.from('actions').insert({
+    user_id: user.id,
+    action_type: 'daily_mini_game',
+    points_added: points,
+    tickets_added: tickets,
+    metadata: { answer: text, correct },
+  });
+
+  await sendTelegramMessage(
+    chatId,
+    correct
+      ? `Верно! Это неоклассика.\n\nВаш бонус: +${points} баллов и +${tickets} билета.`
+      : `Ответ не совсем верный. Правильный ответ: Неоклассика.\n\nЗа участие RichHouse начислил вам +${points} баллов.`,
+    mainKeyboard()
+  );
+  return true;
+}
+
+async function spinBonusWheel(user: any, chatId: number) {
+  const { data: alreadySpun } = await supabaseAdmin
+    .from('actions')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('action_type', 'bonus_wheel')
+    .gte('created_at', todayStart())
+    .limit(1)
+    .maybeSingle();
+
+  if (alreadySpun) {
+    await sendTelegramMessage(chatId, 'Колесо бонусов уже использовано сегодня. Возвращайтесь завтра за новым вращением.', mainKeyboard());
+    return;
+  }
+
+  const reward = wheelRewards[Math.floor(Math.random() * wheelRewards.length)];
+
+  await supabaseAdmin.from('users').update({ points: Number(user.points || 0) + reward.points, tickets: Number(user.tickets || 0) + reward.tickets }).eq('id', user.id);
+  await supabaseAdmin.from('actions').insert({
+    user_id: user.id,
+    action_type: 'bonus_wheel',
+    points_added: reward.points,
+    tickets_added: reward.tickets,
+    metadata: { title: reward.title },
+  });
+
+  await sendTelegramMessage(
+    chatId,
+    `🎡 Колесо бонусов остановилось на секторе:\n\n${reward.title}\n\nНачислено: +${reward.points} баллов${reward.tickets ? ` и +${reward.tickets} билета` : ''}.`,
+    mainKeyboard()
+  );
+}
+
+async function requestUsePoints(user: any, chatId: number) {
+  const { data: freshUser } = await supabaseAdmin.from('users').select('points,tickets').eq('id', user.id).maybeSingle();
+  const points = freshUser?.points ?? user.points;
+  const tickets = freshUser?.tickets ?? user.tickets;
+
+  const { data: lead } = await supabaseAdmin
+    .from('leads')
+    .insert({
+      user_id: user.id,
+      name: user.name,
+      phone: user.phone,
+      interest: 'Клиент хочет использовать баллы при покупке мебели',
+      status: 'new',
+      comment: JSON.stringify({ source: 'use_points', points, tickets }),
+    })
+    .select('*')
+    .single();
+
+  const managerChatId = process.env.TELEGRAM_MANAGER_CHAT_ID;
+  if (managerChatId && managerChatId !== '0') {
+    await sendTelegramMessage(
+      managerChatId,
+      `Клиент хочет использовать баллы RichHouse\nИмя: ${user.name}\nТелефон: ${user.phone || '-'}\nTelegram: @${user.telegram_username || '-'}\nБаллы: ${points}\nБилеты: ${tickets}\nЗаявка: ${lead?.id || '-'}`
+    );
+  }
+
+  await sendTelegramMessage(
+    chatId,
+    `У вас ${points} баллов.\n\nМы передали менеджеру, что вы хотите использовать баллы при покупке мебели. Менеджер подскажет, какой бонус можно применить к вашему заказу.`,
+    mainKeyboard()
+  );
 }
 
 async function createLeadIfNeeded(user: any) {
@@ -201,9 +329,7 @@ async function createLeadIfNeeded(user: any) {
     .limit(1)
     .maybeSingle();
 
-  if (existing) {
-    return { created: false, lead: existing };
-  }
+  if (existing) return { created: false, lead: existing };
 
   const { data: lead, error } = await supabaseAdmin
     .from('leads')
@@ -219,26 +345,18 @@ export async function POST(request: Request) {
   const update = await request.json();
   const message = update.message;
   if (!message) return NextResponse.json({ ok: true });
-
-  if (message.chat?.type !== 'private') {
-    return NextResponse.json({ ok: true });
-  }
+  if (message.chat?.type !== 'private') return NextResponse.json({ ok: true });
 
   const chatId = message.chat.id;
   const user = await findOrCreateUser(message);
 
   if (message.contact?.phone_number) {
-    await supabaseAdmin
-      .from('users')
-      .update({ phone: message.contact.phone_number })
-      .eq('id', user.id);
-
-    await sendTelegramMessage(chatId, 'Номер сохранён. Теперь можно собрать интерьерный профиль, открыть коробку дня и участвовать в розыгрышах RichHouse.', mainKeyboard());
+    await supabaseAdmin.from('users').update({ phone: message.contact.phone_number }).eq('id', user.id);
+    await sendTelegramMessage(chatId, 'Номер сохранён. Теперь можно играть, крутить колесо бонусов, собирать интерьер и использовать баллы при покупке мебели.', mainKeyboard());
     return NextResponse.json({ ok: true });
   }
 
   if (!message.text) return NextResponse.json({ ok: true });
-
   const text = message.text;
 
   if (text === '/start') {
@@ -246,8 +364,7 @@ export async function POST(request: Request) {
       await sendTelegramMessage(chatId, 'Вы в RichHouse Client Club. Для участия отправьте номер телефона.', phoneKeyboard());
       return NextResponse.json({ ok: true });
     }
-
-    await sendTelegramMessage(chatId, 'Вы в RichHouse Client Club. Соберите интерьерный профиль, открывайте коробку дня, копите баллы и билеты.', mainKeyboard());
+    await sendTelegramMessage(chatId, 'Вы в RichHouse Client Club. Здесь можно играть, получать баллы, билеты и использовать их при покупке мебели.', mainKeyboard());
     return NextResponse.json({ ok: true });
   }
 
@@ -256,7 +373,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  if (await continueInteriorQuiz(user, text, chatId)) {
+  if (await continueMiniGame(user, text, chatId)) return NextResponse.json({ ok: true });
+  if (await continueInteriorQuiz(user, text, chatId)) return NextResponse.json({ ok: true });
+
+  if (text.includes('Колесо')) {
+    await spinBonusWheel(user, chatId);
+    return NextResponse.json({ ok: true });
+  }
+
+  if (text.includes('Игра дня')) {
+    await startMiniGame(user, chatId);
+    return NextResponse.json({ ok: true });
+  }
+
+  if (text.includes('Использовать баллы')) {
+    await requestUsePoints(user, chatId);
     return NextResponse.json({ ok: true });
   }
 
@@ -267,7 +398,7 @@ export async function POST(request: Request) {
 
   if (text.includes('баланс')) {
     const { data: freshUser } = await supabaseAdmin.from('users').select('points,tickets').eq('id', user.id).maybeSingle();
-    await sendTelegramMessage(chatId, `Ваш баланс:\nБаллы: ${freshUser?.points ?? user.points}\nБилеты: ${freshUser?.tickets ?? user.tickets}`, mainKeyboard());
+    await sendTelegramMessage(chatId, `Ваш баланс:\nБаллы: ${freshUser?.points ?? user.points}\nБилеты: ${freshUser?.tickets ?? user.tickets}\n\nБаллы можно использовать через кнопку «Использовать баллы».`, mainKeyboard());
     return NextResponse.json({ ok: true });
   }
 
@@ -296,12 +427,10 @@ export async function POST(request: Request) {
 
   if (text.includes('подборку')) {
     const leadResult = await createLeadIfNeeded(user);
-
     if (!leadResult.created) {
       await sendTelegramMessage(chatId, 'У вас уже есть активная заявка. Менеджер RichHouse свяжется с вами. Повторную заявку можно оставить позже.', mainKeyboard());
       return NextResponse.json({ ok: true });
     }
-
     const managerChatId = process.env.TELEGRAM_MANAGER_CHAT_ID;
     if (managerChatId && managerChatId !== '0') {
       await sendTelegramMessage(managerChatId, `Новая заявка из игры RichHouse\nИмя: ${user.name}\nТелефон: ${user.phone || '-'}\nTelegram: @${user.telegram_username || '-'}\nБаллы: ${user.points}\nБилеты: ${user.tickets}`);
@@ -317,7 +446,7 @@ export async function POST(request: Request) {
   }
 
   if (text.includes('Правила')) {
-    await sendTelegramMessage(chatId, 'Участие бесплатное. Каждый день можно открыть одну коробку. Баллы можно использовать при покупке мебели по правилам акции. Билеты участвуют в розыгрышах RichHouse.', mainKeyboard());
+    await sendTelegramMessage(chatId, 'Участие бесплатное. Каждый день можно открыть коробку, пройти игру дня и крутить колесо бонусов. Баллы можно использовать при покупке мебели по условиям акции.', mainKeyboard());
     return NextResponse.json({ ok: true });
   }
 
