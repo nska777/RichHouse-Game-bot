@@ -18,9 +18,10 @@ export async function sendTelegramMessage(chatId: string | number, text: string,
 export function mainKeyboard() {
   return {
     keyboard: [
-      [{ text: 'Собрать интерьер' }, { text: 'Открыть коробку дня' }],
-      [{ text: 'Мой баланс' }, { text: 'Получить подборку' }],
-      [{ text: 'Пригласить друга' }, { text: 'Правила' }],
+      [{ text: '🎡 Колесо бонусов' }, { text: '🎮 Игра дня' }],
+      [{ text: '🏠 Собрать интерьер' }, { text: '🎁 Открыть коробку дня' }],
+      [{ text: '💎 Использовать баллы' }, { text: '📊 Мой баланс' }],
+      [{ text: '👥 Пригласить друга' }, { text: '📜 Правила' }],
     ],
     resize_keyboard: true,
   };
