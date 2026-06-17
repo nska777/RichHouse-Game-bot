@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../lib/supabase';
 
 const gameRewards: Record<string, { title: string; basePoints: number; baseTickets: number }> = {
+  richrush: { title: 'RichHouse Rush', basePoints: 8000, baseTickets: 2 },
   match: { title: 'Найди пару', basePoints: 4000, baseTickets: 1 },
   quiz: { title: 'Дизайн-тест', basePoints: 5000, baseTickets: 2 },
   catch: { title: 'Поймай бонус', basePoints: 3000, baseTickets: 1 },
@@ -48,8 +49,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ alreadyClaimed: true, points: 0, tickets: 0 });
   }
 
-  const points = reward.basePoints + Math.floor(score * 80);
-  const tickets = reward.baseTickets + (score >= 80 ? 2 : score >= 50 ? 1 : 0);
+  const points = reward.basePoints + Math.floor(score * 120);
+  const tickets = reward.baseTickets + (score >= 80 ? 3 : score >= 50 ? 2 : score >= 25 ? 1 : 0);
 
   const { error: updateError } = await supabaseAdmin
     .from('users')
