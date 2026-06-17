@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../lib/supabase';
-import { mainKeyboard, optionKeyboard, phoneKeyboard, sendTelegramMessage } from '../../../lib/telegram';
+import { mainKeyboard, miniAppInlineKeyboard, optionKeyboard, phoneKeyboard, sendTelegramMessage } from '../../../lib/telegram';
 
 const roomOptions = ['Спальня', 'Гостиная', 'Столовая', 'Детская', 'Прихожая', 'Весь дом'];
 const styleOptions = ['Неоклассика', 'Современный', 'Итальянский', 'Минимализм', 'Светлый интерьер', 'Тёмный интерьер'];
@@ -283,6 +283,14 @@ async function spinBonusWheel(user: any, chatId: number) {
   );
 }
 
+async function sendMiniAppLaunch(user: any, chatId: number) {
+  await sendTelegramMessage(
+    chatId,
+    'Нажмите кнопку ниже — игра откроется отдельным окном прямо внутри Telegram. Если Telegram Desktop не откроет окно, используйте запасную кнопку обычной ссылки.',
+    miniAppInlineKeyboard(user.telegram_id)
+  );
+}
+
 async function requestUsePoints(user: any, chatId: number) {
   const { data: freshUser } = await supabaseAdmin.from('users').select('points,tickets').eq('id', user.id).maybeSingle();
   const points = freshUser?.points ?? user.points;
@@ -353,6 +361,7 @@ export async function POST(request: Request) {
   if (message.contact?.phone_number) {
     await supabaseAdmin.from('users').update({ phone: message.contact.phone_number }).eq('id', user.id);
     await sendTelegramMessage(chatId, 'Номер сохранён. Теперь можно играть, крутить колесо бонусов, собирать интерьер и использовать баллы при покупке мебели.', mainKeyboard());
+    await sendMiniAppLaunch(user, chatId);
     return NextResponse.json({ ok: true });
   }
 
@@ -365,6 +374,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true });
     }
     await sendTelegramMessage(chatId, 'Вы в RichHouse Client Club. Здесь можно играть, получать баллы, билеты и использовать их при покупке мебели.', mainKeyboard());
+    await sendMiniAppLaunch(user, chatId);
     return NextResponse.json({ ok: true });
   }
 
@@ -377,12 +387,7 @@ export async function POST(request: Request) {
   if (await continueInteriorQuiz(user, text, chatId)) return NextResponse.json({ ok: true });
 
   if (text.includes('Играть внутри')) {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
-    await sendTelegramMessage(
-      chatId,
-      `Открыть мини-игры RichHouse:\n${appUrl}/play?tg=${user.telegram_id}\n\nТам уже можно играть внутри сайта: найти пару, пройти дизайн-тест и поймать бонус. После игры баллы начисляются на ваш профиль.`,
-      mainKeyboard()
-    );
+    await sendMiniAppLaunch(user, chatId);
     return NextResponse.json({ ok: true });
   }
 
