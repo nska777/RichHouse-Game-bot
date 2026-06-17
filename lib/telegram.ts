@@ -16,9 +16,11 @@ export async function sendTelegramMessage(chatId: string | number, text: string,
 }
 
 export function mainKeyboard() {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://rich-house-game-bot.vercel.app';
+
   return {
     keyboard: [
-      [{ text: '🕹️ Играть внутри' }, { text: '🎡 Колесо бонусов' }],
+      [{ text: '🕹️ Играть внутри', web_app: { url: `${appUrl}/play` } }, { text: '🎡 Колесо бонусов' }],
       [{ text: '🎮 Игра дня' }, { text: '🏠 Собрать интерьер' }],
       [{ text: '🎁 Открыть коробку дня' }, { text: '💎 Использовать баллы' }],
       [{ text: '📊 Мой баланс' }, { text: '👥 Пригласить друга' }],
