@@ -18,7 +18,7 @@ export async function sendTelegramMessage(chatId: string | number, text: string,
 export function mainKeyboard() {
   return {
     keyboard: [
-      [{ text: 'Открыть коробку дня' }],
+      [{ text: 'Собрать интерьер' }, { text: 'Открыть коробку дня' }],
       [{ text: 'Мой баланс' }, { text: 'Получить подборку' }],
       [{ text: 'Пригласить друга' }, { text: 'Правила' }],
     ],
@@ -32,4 +32,13 @@ export function phoneKeyboard() {
     resize_keyboard: true,
     one_time_keyboard: true,
   };
+}
+
+export function optionKeyboard(options: string[], back = true) {
+  const rows = [];
+  for (let i = 0; i < options.length; i += 2) {
+    rows.push(options.slice(i, i + 2).map((text) => ({ text })));
+  }
+  if (back) rows.push([{ text: 'Отмена' }]);
+  return { keyboard: rows, resize_keyboard: true };
 }
