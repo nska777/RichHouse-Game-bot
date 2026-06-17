@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 type GameKey = 'match' | 'quiz' | 'catch';
 
@@ -13,6 +13,22 @@ type ClaimResult = {
   title?: string;
   error?: string;
 };
+
+declare global {
+  interface Window {
+    Telegram?: {
+      WebApp?: {
+        ready?: () => void;
+        expand?: () => void;
+        initDataUnsafe?: {
+          user?: {
+            id?: number;
+          };
+        };
+      };
+    };
+  }
+}
 
 const cardsBase = [
   { id: 'bed', label: 'Кровать', pair: 'Спальня' },
@@ -27,9 +43,11 @@ const quiz = [
   { q: 'Какая заявка ценнее менеджеру?', a: 'Комната + стиль + бюджет', options: ['Только имя', 'Только лайк', 'Комната + стиль + бюджет'] },
 ];
 
-function getTelegramId() {
+function readTelegramId() {
   if (typeof window === 'undefined') return '';
-  return new URLSearchParams(window.location.search).get('tg') || '';
+  const fromQuery = new URLSearchParams(window.location.search).get('tg');
+  const fromWebApp = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+  return fromQuery || (fromWebApp ? String(fromWebApp) : '');
 }
 
 function cardStyle(active?: boolean) {
@@ -47,14 +65,20 @@ function cardStyle(active?: boolean) {
 }
 
 export default function PlayPage() {
-  const telegramId = getTelegramId();
+  const [telegramId, setTelegramId] = useState('');
   const [game, setGame] = useState<GameKey>('match');
   const [result, setResult] = useState<ClaimResult | null>(null);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    window.Telegram?.WebApp?.ready?.();
+    window.Telegram?.WebApp?.expand?.();
+    setTelegramId(readTelegramId());
+  }, []);
+
   async function claim(gameKey: GameKey, score: number) {
     if (!telegramId) {
-      setResult({ error: 'Откройте мини-игру из Telegram-бота, чтобы начислить бонусы на ваш профиль.' });
+      setResult({ error: 'Откройте мини-игру через кнопку в Telegram-боте, чтобы начислить бонусы на ваш профиль.' });
       return;
     }
     setLoading(true);
@@ -69,24 +93,23 @@ export default function PlayPage() {
   }
 
   return (
-    <main style={{ minHeight: '100vh', padding: '28px 16px 70px' }}>
+    <main style={{ minHeight: '100vh', padding: '22px 14px 70px' }}>
       <section style={{ maxWidth: 980, margin: '0 auto' }}>
-        <a href="/" style={{ color: '#c8a15a', textDecoration: 'none' }}>← RichHouse</a>
-        <div style={{ marginTop: 24, border: '1px solid rgba(220,226,232,.14)', borderRadius: 34, padding: 28, background: 'linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.025))' }}>
+        <div style={{ border: '1px solid rgba(220,226,232,.14)', borderRadius: 30, padding: 24, background: 'linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.025))' }}>
           <p style={{ color: '#c8a15a', letterSpacing: 4, textTransform: 'uppercase', margin: 0 }}>RichHouse Interactive</p>
-          <h1 style={{ fontSize: 'clamp(38px, 7vw, 76px)', lineHeight: .95, margin: '18px 0' }}>Мини-игры для бонусов</h1>
-          <p style={{ color: '#dbe1e5', fontSize: 19, lineHeight: 1.55, maxWidth: 720 }}>
-            Играйте, набирайте очки и получайте реальные баллы RichHouse. Один бонус за каждую мини-игру доступен один раз в день.
+          <h1 style={{ fontSize: 'clamp(34px, 7vw, 72px)', lineHeight: .95, margin: '18px 0' }}>Мини-игры внутри Telegram</h1>
+          <p style={{ color: '#dbe1e5', fontSize: 18, lineHeight: 1.55, maxWidth: 720 }}>
+            Это игровой экран, который открывается прямо внутри Telegram. Играйте, набирайте очки и получайте реальные баллы RichHouse.
           </p>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 18 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginTop: 16 }}>
           <button onClick={() => { setGame('match'); setResult(null); }} style={cardStyle(game === 'match')}>Найди пару</button>
           <button onClick={() => { setGame('quiz'); setResult(null); }} style={cardStyle(game === 'quiz')}>Дизайн-тест</button>
           <button onClick={() => { setGame('catch'); setResult(null); }} style={cardStyle(game === 'catch')}>Поймай бонус</button>
         </div>
 
-        <div style={{ marginTop: 18 }}>
+        <div style={{ marginTop: 16 }}>
           {game === 'match' ? <MatchGame onFinish={(score) => claim('match', score)} loading={loading} /> : null}
           {game === 'quiz' ? <QuizGame onFinish={(score) => claim('quiz', score)} loading={loading} /> : null}
           {game === 'catch' ? <CatchGame onFinish={(score) => claim('catch', score)} loading={loading} /> : null}
@@ -137,10 +160,10 @@ function MatchGame({ onFinish, loading }: { onFinish: (score: number) => void; l
   const score = Math.max(40, 100 - moves * 8);
 
   return (
-    <div style={{ border: '1px solid rgba(220,226,232,.12)', borderRadius: 28, padding: 24, background: 'rgba(13,18,24,.42)' }}>
+    <div style={{ border: '1px solid rgba(220,226,232,.12)', borderRadius: 28, padding: 20, background: 'rgba(13,18,24,.42)' }}>
       <h2>Найди пару: мебель и комната</h2>
       <p style={{ color: '#b8c1c9' }}>Соедини предмет мебели с комнатой. Чем меньше попыток, тем больше бонус.</p>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
         {cards.map((card) => {
           const active = selected.some((item) => item.key === card.key) || matched.includes(card.key);
           return <button key={card.key} onClick={() => pick(card)} style={cardStyle(active)}>{matched.includes(card.key) ? '✓ ' : ''}{card.text}</button>;
@@ -164,7 +187,7 @@ function QuizGame({ onFinish, loading }: { onFinish: (score: number) => void; lo
   }
 
   return (
-    <div style={{ border: '1px solid rgba(220,226,232,.12)', borderRadius: 28, padding: 24, background: 'rgba(13,18,24,.42)' }}>
+    <div style={{ border: '1px solid rgba(220,226,232,.12)', borderRadius: 28, padding: 20, background: 'rgba(13,18,24,.42)' }}>
       <h2>Дизайн-тест RichHouse</h2>
       {!done ? (
         <>
@@ -193,7 +216,7 @@ function CatchGame({ onFinish, loading }: { onFinish: (score: number) => void; l
   }
 
   return (
-    <div style={{ border: '1px solid rgba(220,226,232,.12)', borderRadius: 28, padding: 24, background: 'rgba(13,18,24,.42)' }}>
+    <div style={{ border: '1px solid rgba(220,226,232,.12)', borderRadius: 28, padding: 20, background: 'rgba(13,18,24,.42)' }}>
       <h2>Поймай бонус RichHouse</h2>
       <p style={{ color: '#b8c1c9' }}>Нажимай на золотой бонус. Набери больше попаданий и забери награду.</p>
       <div style={{ position: 'relative', height: 360, borderRadius: 24, background: 'linear-gradient(145deg, #202832, #111820)', border: '1px solid rgba(200,161,90,.22)', overflow: 'hidden' }}>
