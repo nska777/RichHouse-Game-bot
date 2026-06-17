@@ -15,18 +15,32 @@ export async function sendTelegramMessage(chatId: string | number, text: string,
   return response.json();
 }
 
-export function mainKeyboard() {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://rich-house-game-bot.vercel.app';
+export function getAppUrl() {
+  return process.env.NEXT_PUBLIC_APP_URL || 'https://rich-house-game-bot.vercel.app';
+}
 
+export function mainKeyboard() {
   return {
     keyboard: [
-      [{ text: '🕹️ Играть внутри', web_app: { url: `${appUrl}/play` } }, { text: '🎡 Колесо бонусов' }],
+      [{ text: '🕹️ Играть внутри' }, { text: '🎡 Колесо бонусов' }],
       [{ text: '🎮 Игра дня' }, { text: '🏠 Собрать интерьер' }],
       [{ text: '🎁 Открыть коробку дня' }, { text: '💎 Использовать баллы' }],
       [{ text: '📊 Мой баланс' }, { text: '👥 Пригласить друга' }],
       [{ text: '📜 Правила' }],
     ],
     resize_keyboard: true,
+  };
+}
+
+export function miniAppInlineKeyboard(telegramId?: string | number) {
+  const tgParam = telegramId ? `?tg=${telegramId}` : '';
+  const url = `${getAppUrl()}/play${tgParam}`;
+
+  return {
+    inline_keyboard: [
+      [{ text: '🕹️ Открыть игру внутри Telegram', web_app: { url } }],
+      [{ text: 'Открыть обычной ссылкой', url }],
+    ],
   };
 }
 
