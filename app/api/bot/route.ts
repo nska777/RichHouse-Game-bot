@@ -376,6 +376,16 @@ export async function POST(request: Request) {
   if (await continueMiniGame(user, text, chatId)) return NextResponse.json({ ok: true });
   if (await continueInteriorQuiz(user, text, chatId)) return NextResponse.json({ ok: true });
 
+  if (text.includes('Играть внутри')) {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
+    await sendTelegramMessage(
+      chatId,
+      `Открыть мини-игры RichHouse:\n${appUrl}/play?tg=${user.telegram_id}\n\nТам уже можно играть внутри сайта: найти пару, пройти дизайн-тест и поймать бонус. После игры баллы начисляются на ваш профиль.`,
+      mainKeyboard()
+    );
+    return NextResponse.json({ ok: true });
+  }
+
   if (text.includes('Колесо')) {
     await spinBonusWheel(user, chatId);
     return NextResponse.json({ ok: true });
