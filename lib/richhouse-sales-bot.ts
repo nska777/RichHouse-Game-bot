@@ -593,6 +593,9 @@ async function handleMessage(message: TelegramMessage) {
   if (text === '/menu') {
     return msg(chatId, 'Главное меню RichHouse:', mainMenu());
   }
+  if (text === '/chatid') {
+  return msg(chatId, `ID этого чата: <code>${chatId}</code>`);
+  }
 
   if (message.contact?.phone_number) {
     patchDraft(chatId, {
