@@ -577,18 +577,22 @@ async function handleMessage(message: TelegramMessage) {
   const source = sourceFromText(text);
 
   if (text?.startsWith('/start')) {
-    drafts.delete(chatId);
+  drafts.delete(chatId);
 
-    if (source && source !== 'direct') {
-      patchDraft(chatId, { source });
-    }
-
-    return msg(
-      chatId,
-      'Добро пожаловать в RichHouse.\n\nЯ помогу подобрать мебель под ваш интерьер, рассчитать комплект, записать вас в салон или передать заявку менеджеру.',
-      mainMenu(),
-    );
+  if (source && source !== 'direct') {
+    patchDraft(chatId, { source });
   }
+
+  if (source?.startsWith('room_photo')) {
+    return startRoomPhoto(chatId, source);
+  }
+
+  return msg(
+    chatId,
+    'Добро пожаловать в RichHouse.\n\nЯ помогу подобрать мебель под ваш интерьер, рассчитать комплект, записать вас в салон или передать заявку менеджеру.',
+    mainMenu(),
+  );
+}
 
   if (text === '/menu') {
     return msg(chatId, 'Главное меню RichHouse:', mainMenu());
