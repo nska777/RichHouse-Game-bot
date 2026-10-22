@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { handleTelegramUpdate, type TelegramUpdate } from '@/lib/richhouse-bot';
+import { handleTelegramUpdate, type TelegramUpdate } from '@/lib/richhouse-sales-bot';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
