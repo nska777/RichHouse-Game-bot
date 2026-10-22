@@ -100,11 +100,11 @@ function languageMenu() {
 function menu(lang: Lang) {
   const t = dictionary[lang];
   return { inline_keyboard: [
-    [{ text: t.sale, callback_data: 'sale' }],
+    [{ text: t.sale, callback_data: lang + ':sale' }],
     [{ text: t.site, url: SITE }],
-    [{ text: t.manager, callback_data: 'manager' }],
-    [{ text: t.address, callback_data: 'address' }],
-    [{ text: t.language, callback_data: 'language' }],
+    [{ text: t.manager, callback_data: lang + ':manager' }],
+    [{ text: t.address, callback_data: lang + ':address' }],
+    [{ text: t.language, callback_data: lang + ':language' }],
   ] };
 }
 async function chooseLanguage(chatId: number) {
@@ -157,32 +157,35 @@ export async function handleTelegramUpdate(update: TelegramUpdate) {
     const chatId = cb.message?.chat.id;
     if (!chatId) return;
     const data = cb.data || '';
-    if (data === 'language') return chooseLanguage(chatId);
+    if (data === 'language' || data.endsWith(':language')) return chooseLanguage(chatId);
     if (data === 'lang:ru' || data === 'lang:uz') {
       const lang: Lang = data === 'lang:uz' ? 'uz' : 'ru';
       await setLang(chatId, lang, update.update_id);
       return home(chatId, lang);
     }
-    const lang = await getLang(chatId);
+    // The locale is embedded in every inline button: Vercel instances need no shared memory.
+    const match = /^(ru|uz):(home|sale|address|manager|phone_sale)$/.exec(data);
+    const lang: Lang | undefined = match ? match[1] as Lang : await getLang(chatId);
     if (!lang) return chooseLanguage(chatId);
+    const action = match ? match[2] : data;
     const t = dictionary[lang];
-    if (data === 'home') return home(chatId, lang);
-    if (data === 'sale') return send(chatId, t.saleBody, {
+    if (action === 'home') return home(chatId, lang);
+    if (action === 'sale') return send(chatId, t.saleBody, {
       inline_keyboard: [
         [{ text: t.catalog, url: CATALOG }],
-        [{ text: t.askSale, callback_data: 'phone:sale' }],
-        [{ text: t.back, callback_data: 'home' }],
+        [{ text: t.askSale, callback_data: lang + ':phone_sale' }],
+        [{ text: t.back, callback_data: lang + ':home' }],
       ],
     });
-    if (data === 'address') return send(chatId, t.addressBody + PHONE, {
+    if (action === 'address') return send(chatId, t.addressBody + PHONE, {
       inline_keyboard: [
         [{ text: t.map, url: MAP }],
         [{ text: t.contacts, url: CONTACTS }],
-        [{ text: t.back, callback_data: 'home' }],
+        [{ text: t.back, callback_data: lang + ':home' }],
       ],
     });
-    if (data === 'manager' || data === 'phone:sale') {
-      pendingKinds.set(chatId, data === 'manager' ? 'Связаться с менеджером' : 'Скидки до 60%');
+    if (action === 'manager' || action === 'phone_sale' || action === 'phone:sale') {
+      pendingKinds.set(chatId, action === 'manager' ? 'Связаться с менеджером' : 'Скидки до 60%');
       return requestPhone(chatId, lang);
     }
     return home(chatId, lang);
