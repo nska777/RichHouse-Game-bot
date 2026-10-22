@@ -16,9 +16,7 @@ function escapeHtml(s: string) {
 }
 function menu() {
   return { inline_keyboard: [
-    [{ text: '🛋 Каталог мебели', url: CATALOG }],
     [{ text: '🔥 Скидки до 60%', callback_data: 'sale' }],
-    [{ text: '🎁 Акции', callback_data: 'promos' }],
     [{ text: '🌐 Наш сайт', url: SITE }],
     [{ text: '👤 Связаться с менеджером', callback_data: 'manager' }],
     [{ text: '📍 Адрес салона', callback_data: 'address' }],
