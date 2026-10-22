@@ -152,3 +152,13 @@ export async function handleTelegramUpdate(update: TelegramUpdate) {
   if (message.contact?.phone_number) return submitLead(message);
   return home(chatId);
 }
+
+export async function setTelegramWebhook(secret: string) {
+  const rawUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL;
+  if (!rawUrl) throw new Error('NEXT_PUBLIC_APP_URL is not set');
+  const base = rawUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  return api('setWebhook', {
+    url: 'https://' + base + '/api/telegram/webhook-sales?secret=' + encodeURIComponent(secret),
+    allowed_updates: ['message', 'callback_query'],
+  });
+}
