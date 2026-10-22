@@ -101,7 +101,7 @@ function menu(lang: Lang) {
   const t = dictionary[lang];
   return { inline_keyboard: [
     [{ text: t.sale, callback_data: lang + ':sale' }],
-    [{ text: t.site, url: SITE }],
+    [{ text: t.site, web_app: { url: SITE } }],
     [{ text: t.manager, callback_data: lang + ':manager' }],
     [{ text: t.address, callback_data: lang + ':address' }],
     [{ text: t.language, callback_data: lang + ':language' }],
@@ -172,7 +172,6 @@ export async function handleTelegramUpdate(update: TelegramUpdate) {
     if (action === 'home') return home(chatId, lang);
     if (action === 'sale') return send(chatId, t.saleBody, {
       inline_keyboard: [
-        [{ text: t.catalog, url: CATALOG }],
         [{ text: t.askSale, callback_data: lang + ':phone_sale' }],
         [{ text: t.back, callback_data: lang + ':home' }],
       ],
