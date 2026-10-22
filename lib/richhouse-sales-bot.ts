@@ -1,7 +1,7 @@
 import { saveLead } from '@/lib/lead-storage';
 
 type User = { id: number; first_name?: string; last_name?: string; username?: string };
-type Message = { chat: { id: number }; from?: User; text?: string; contact?: { phone_number: string } };
+type Message = { chat: { id: number }; from?: User; text?: string; caption?: string; photo?: Array<{ file_id: string }>; contact?: { phone_number: string } };
 type Callback = { id: string; data?: string; from: User; message?: Message };
 export type TelegramUpdate = { update_id: number; message?: Message; callback_query?: Callback };
 
