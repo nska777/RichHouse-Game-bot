@@ -142,7 +142,7 @@ export async function handleTelegramUpdate(update: TelegramUpdate) {
   const chatId = message.chat.id;
   const input = message.text?.trim() || '';
   if (input.startsWith('/start')) {
-    const source = input.split(/\\s+/)[1];
+    const source = input.split(/\s+/)[1];
     if (source) draftSources.set(chatId, source.slice(0, 64));
     pendingKinds.delete(chatId);
     return home(chatId);
