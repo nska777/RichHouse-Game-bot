@@ -133,7 +133,7 @@ async function submitLead(message: Message, lang: Lang) {
     telegram_first_name: user?.first_name || null,
     telegram_last_name: user?.last_name || null,
   });
-  const managerId = process.env.TELEGRAM_MANAGER_CHAT_ID;
+  const managerId = '-1002192182017'; // Заявки Rich House
   if (managerId) {
     await send(managerId,
       '<b>🛋 Новая заявка RichHouse</b>\n' +
