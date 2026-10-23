@@ -39,7 +39,12 @@ async function publish(photo: string, previous?: number, mediaGroup?: string) {
   const result = await tg('sendPhoto', {
     chat_id: CHANNEL, photo, caption: CAPTION, parse_mode: 'HTML', reply_markup: BUTTON,
   });
-  await saveState({ photo, messageId: result.message_id, mediaGroup });
+  try {
+    await saveState({ photo, messageId: result.message_id, mediaGroup });
+  } catch (err) {
+    console.error('RichHouse promo: posted but state save failed', err);
+    throw new Error('POSTED_BUT_NOT_SAVED');
+  }
   if (previous && previous !== result.message_id) {
     try { await tg('deleteMessage', { chat_id: CHANNEL, message_id: previous }); }
     catch (err) { console.error('Could not delete old RichHouse promo:', err); }
@@ -68,7 +73,11 @@ export async function handlePromoPrivate(message: PrivateMessage): Promise<boole
     await tg('sendMessage', { chat_id: message.chat.id, text: '✅ Фото, текст и кнопка опубликованы в канале RichHouse.' });
   } catch (err) {
     console.error('RichHouse promo:', err);
-    await tg('sendMessage', { chat_id: message.chat.id, text: 'Не удалось опубликовать пост. Проверьте права бота и подключение Supabase.' });
+    const detail = err instanceof Error ? err.message : String(err);
+    const text = detail === 'POSTED_BUT_NOT_SAVED'
+      ? '⚠️ Пост мог появиться в канале, но не сохранился для автоматического обновления. Не отправляйте фото повторно, сначала проверьте канал.'
+      : '❌ Публикация не прошла. Причина: ' + detail.slice(0, 260);
+    await tg('sendMessage', { chat_id: message.chat.id, text });
   }
   return true;
 }
