@@ -160,7 +160,8 @@ export async function handleTelegramUpdate(update: TelegramUpdate) {
     if (data === 'language' || data.endsWith(':language')) return chooseLanguage(chatId);
     if (data === 'lang:ru' || data === 'lang:uz') {
       const lang: Lang = data === 'lang:uz' ? 'uz' : 'ru';
-      await setLang(chatId, lang, update.update_id);
+      // Keep the menu responsive even if the language preference database is offline.
+      void setLang(chatId, lang, update.update_id).catch(error => console.error('Language save failed:', error));
       return home(chatId, lang);
     }
     // The locale is embedded in every inline button: Vercel instances need no shared memory.
