@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
   const response = await fetch(telegramUrl, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ url: webhookUrl, allowed_updates: ['message', 'callback_query'] }),
+    body: JSON.stringify({ url: webhookUrl, allowed_updates: ['message', 'callback_query', 'channel_post'] }),
   });
 
   const result = await response.json();
