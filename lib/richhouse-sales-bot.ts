@@ -213,6 +213,6 @@ export async function setTelegramWebhook(secret: string) {
   const base = rawUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
   return api('setWebhook', {
     url: 'https://' + base + '/api/telegram/webhook-sales?secret=' + encodeURIComponent(secret),
-    allowed_updates: ['message', 'callback_query'],
+    allowed_updates: ['message', 'callback_query', 'channel_post'],
   });
 }
