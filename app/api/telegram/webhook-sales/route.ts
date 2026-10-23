@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { handleTelegramUpdate, type TelegramUpdate } from '@/lib/richhouse-sales-bot';
 import { saveTelegramEvent } from '@/lib/telegram-storage';
+import { handlePromoPrivate, handleChannelPost } from '@/lib/channel-promo';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -22,6 +23,7 @@ export async function POST(request: NextRequest) {
   }
 
   const update = (await request.json()) as TelegramUpdate;
+  const extended = update as TelegramUpdate & { channel_post?: Parameters<typeof handleChannelPost>[0] };
   const user = update.message?.from || update.callback_query?.from;
   const chatId = update.message?.chat.id || update.callback_query?.message?.chat.id || null;
   const text = update.message?.text || update.callback_query?.data || update.message?.caption || null;
@@ -36,7 +38,8 @@ export async function POST(request: NextRequest) {
     data: update as unknown as Record<string, unknown>,
   });
 
-  await handleTelegramUpdate(update);
+  if (extended.channel_post) await handleChannelPost(extended.channel_post);
+  else if (!update.message || !(await handlePromoPrivate(update.message))) await handleTelegramUpdate(update);
 
   return NextResponse.json({ ok: true });
 }
