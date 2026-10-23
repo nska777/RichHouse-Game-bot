@@ -28,7 +28,8 @@ export async function POST(request: NextRequest) {
   const chatId = update.message?.chat.id || update.callback_query?.message?.chat.id || null;
   const text = update.message?.text || update.callback_query?.data || update.message?.caption || null;
 
-  await saveTelegramEvent({
+  // Logging must never block Telegram button responses when Supabase is slow or offline.
+  void saveTelegramEvent({
     update_id: update.update_id,
     event_type: getEventType(update),
     telegram_chat_id: chatId,
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
     telegram_username: user?.username || null,
     text,
     data: update as unknown as Record<string, unknown>,
-  });
+  }).catch((error) => console.error('Telegram event logging failed:', error));
 
   if (extended.channel_post) await handleChannelPost(extended.channel_post);
   else if (!update.message || !(await handlePromoPrivate(update.message))) await handleTelegramUpdate(update);
