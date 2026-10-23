@@ -68,9 +68,28 @@ export async function handlePromoPrivate(message: PrivateMessage): Promise<boole
     return true;
   }
   try {
-    const old = await state();
-    await publish(photo, old?.messageId);
-    await tg('sendMessage', { chat_id: message.chat.id, text: '✅ Фото, текст и кнопка опубликованы в канале RichHouse.' });
+    let old: PromoState | null = null;
+    let stateUnavailable = false;
+    try { old = await state(); }
+    catch (err) { console.error('State unavailable, continuing with one-time post:', err); stateUnavailable = true; }
+    if (stateUnavailable || !getSupabaseServerClient()) {
+      const result = await tg('sendPhoto', {
+        chat_id: CHANNEL, photo, caption: CAPTION, parse_mode: 'HTML', reply_markup: BUTTON,
+      });
+      await tg('sendMessage', { chat_id: message.chat.id,
+        text: '✅ Пост опубликован в канале (№ ' + result.message_id + '). Автоматическое перемещение пока отключено: Supabase недоступен.' });
+      return true;
+    }
+    try {
+      await publish(photo, old?.messageId);
+      await tg('sendMessage', { chat_id: message.chat.id, text: '✅ Фото, текст и кнопка опубликованы в канале RichHouse.' });
+    } catch (err) {
+      if (err instanceof Error && err.message === 'POSTED_BUT_NOT_SAVED') {
+        await tg('sendMessage', { chat_id: message.chat.id, text: '✅ Пост опубликован, но Supabase недоступен: автоматическое перемещение пока не работает. Повторно не отправляйте.' });
+        return true;
+      }
+      throw err;
+    }
   } catch (err) {
     console.error('RichHouse promo:', err);
     const detail = err instanceof Error ? err.message : String(err);
